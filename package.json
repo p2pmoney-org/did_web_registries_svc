@@ -1,0 +1,49 @@
+{
+	"name": "did_web_registries",
+	"version": "0.40.36",
+	"author": "P2PMoney.org",
+	"homepage": "http://www.p2pmoney.org/",
+	"license": "MIT",
+	"repository": {
+	  "type": "git",
+	  "url": "https://github.com/github.com/p2pmoney-org/did_web_registries.git"
+	},
+	"scripts": {
+		"start": "forever ./server-xtra/server.js",
+		"startdev": "nodemon ./server-xtra/server.js",
+		"webapp": "forever ./server-xtra/server.js",
+		"webappdev": "nodemon ./server-xtra/server.js",
+		"webappdebug": "nodemon --inspect=0.0.0.0 ./server-xtra/server.js",
+		"webappprof": "node --prof --no-logfile-per-isolate --logfile=/home/appuser/var/lib/ethereum_webapp/logs/ethereum_webapp_prof.log ./server-xtra/server.js"
+	},
+	"dependencies": {
+		"@cef-ebsi/key-did-resolver": "^1.1.0",
+		"body-parser": "^1.18.3",
+		"child_process": "^1.0.2",
+		"cookie-parser": "~1.4.3",
+		"deasync": "^0.1.28",
+		"did-jwt": "6.11.5",
+		"did-resolver": "^4.1.0",
+		"elliptic": "^6.5.4",
+		"ethers": "^5.7.2",
+		"express": "^4.16.2",
+		"express-rate-limit": "^2.9.0",
+		"forever": "^0.15.3",
+		"jose": "^4.13.1",
+		"jsontokens": "^4.0.1",
+		"key-did-resolver": "3.0.0",
+		"morgan": "~1.9.0",
+		"multiformats": "^9.9.0",
+		"mysql": "^2.15.0",
+		"pako": "^2.1.0",
+		"pug": "^3.0.2",
+		"qs": "^6.11.2",
+		"serve-favicon": "~2.4.5",
+		"shelljs": "^0.8.2"
+	},
+	"devDependencies": {
+		"debug": "~2.6.9",
+		"nodemon": "^1.17.5",
+		"wscat": "^5.2.0"
+	}
+}
