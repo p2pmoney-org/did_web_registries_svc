@@ -40,6 +40,15 @@ class CryptoUtils {
 		return verified;
 	}
 
+	static async generateHexPrivateKey() {
+
+		const crypto = require('crypto');
+		
+		let privateHexKey = '0x' + crypto.randomBytes(32).toString('hex');
+
+		return privateHexKey;
+	}
+
 }
  
 module.exports = CryptoUtils;

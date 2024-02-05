@@ -317,6 +317,10 @@ class RegistriesControllers {
 				if (auth_token && auth_token.authenticated && (auth_token.did == did)) {
 					isAuthorized = true;
 				}
+				else if (didregistriesserver._isSiteRootDiKey(auth_token.did)) {
+					// call by site root did key
+					isAuthorized = true;
+				}
 			}
 			else if (did.startsWith('did:web')) {
 				let auth_did_key = auth_token.did;
@@ -387,6 +391,62 @@ class RegistriesControllers {
 		}
 		
 		return isAuthorized;
+	}
+
+	//
+	// did:key
+	async did_key(req, res) {
+		// POST
+		var global = this.global;
+		var sessionuuid = req.get("sessiontoken");
+		
+		global.log("did_key called for sessiontoken " + sessionuuid);
+
+		let access_token = this._parseAccessTokenFromRequests(req);
+		
+		var api_secret = req.body.api_secret;
+		var did  = req.body.did;
+		let did_web_domain = req.body.domain
+		
+		var jsonresult;
+		
+		try {
+			var commonservice = global.getServiceInstance('common');
+			var Session = commonservice.Session;
+
+			var session_section = Session.openSessionSection(global, sessionuuid, 'did_key');
+			var session = await session_section.getSessionAsync();
+
+			var didregistriesservice = global.getServiceInstance('did-registries');
+			let didregistriesserver = didregistriesservice.getDidRegistriesServerInstance();
+			let authorizationserver = didregistriesservice.getAuthorizationServerInstance();
+
+			let auth_token = await authorizationserver.getAuthToken(access_token);
+	
+
+			let isAuthorized = await this._isAuthorizedForDid(global, did, access_token, api_secret, 3);
+
+			if (isAuthorized) {
+
+				let options = {auth_token};
+				let params = {did, did_web_domain};
+				let result = await didregistriesserver.did_key(session_section, options, params);
+				
+				jsonresult = Object.assign({status: 1}, result);
+			}
+			else {
+				jsonresult = {status: 0, error: "no rights to read did:key " + did};
+			}
+		}
+		catch(e) {
+			global.log("exception in did_key for sessiontoken " + sessionuuid + ": " + e);
+			global.log(e.stack);
+
+			jsonresult = {status: 0, error: "exception could not read did"};
+		}
+
+		if (session_section) session_section.close();
+		res.json(jsonresult);
 	}
 
 	//
@@ -474,7 +534,7 @@ class RegistriesControllers {
 				jsonresult = Object.assign({status: 1}, result);
 			}
 			else {
-				jsonresult = {status: 0, error: "no rights to create path " + path};
+				jsonresult = {status: 0, error: "no rights to read path " + path};
 			}
 		}
 		catch(e) {

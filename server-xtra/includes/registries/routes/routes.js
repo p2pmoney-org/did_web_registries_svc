@@ -72,6 +72,11 @@ class RegistriesRoutes {
 		.post(function(req, res) { controllers.authorization_siop_sessions(req, res); });
 
 		//
+		// did:key
+		app.route(route_root_path + '/didkey')
+		.post(function(req, res) { controllers.did_key(req, res); });
+
+		//
 		// did:web create, update, deactivate
 		app.route(route_root_path + '/dids')
 		.get(function(req, res) { controllers.did_web_list(req, res); });

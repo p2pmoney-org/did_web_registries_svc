@@ -72,16 +72,27 @@ class DidRegistriesServer {
 
 	//
 	// connection between did:web and rest api
-	registries_configuration(options) {
+	async registries_configuration(options) {
 		var global = this.global;
 		var json = {};
 
 		let current_host = options.current_host;
 
-		let site_did_web_api_path = global.getConfigValue('site_did_web_api_path');
-		let site_did_web_domain = this._getSiteDidWebDomain(current_host);
+		// did web domain and root
+		let canonical_site_did_web_domain = this._getSiteDidWebDomain();
+		let canonical_site_did_web_root = this._getSiteRootDidWeb();
 
-		json.canonical_did_web_domain_name = site_did_web_domain;
+		json.canonical_did_web_domain_name = canonical_site_did_web_domain;
+		json.canonical_did_web_root = canonical_site_did_web_root;
+
+		let site_did_web_domain = this._getSiteDidWebDomain(current_host);
+		let site_did_web_root = this._getSiteRootDidWeb(current_host);
+
+		json.current_did_web_domain_name = site_did_web_domain;
+		json.current_did_web_root = site_did_web_root;
+
+		// api end point and signing alg
+		let site_did_web_api_path = global.getConfigValue('site_did_web_api_path');
 
 		json.api_endpoint = site_did_web_api_path;
 
@@ -442,6 +453,23 @@ class DidRegistriesServer {
 		return arr
 	}
 
+	//
+	// did:key
+	async did_key(session_section, options, params) {
+		var json = {};
+
+		let auth_did_key = options.auth_token.did;
+
+		let sub_did_key  = params.did;
+		let did_web_domain = params.did_web_domain;
+
+		// check auth_did_key and sub_did_web match
+
+		// return privy info on did_key
+		json.did_webs = await this.getDidWebListFromDidKey(sub_did_key, did_web_domain);
+
+		return json;
+	}
 
 	//
 	// list, create, update, deactivate
@@ -795,9 +823,11 @@ class DidRegistriesServer {
 	async did_registry_did_document(did_web, options) {
 		var json = {};
 
+		let did_web_domain = this._getDidWebDomain(did_web);
+
 		let path = this._getPathFromDidWeb(did_web);
 
-		let did_document = await this.path_document({path});
+		let did_document = await this.path_document({path, current_host: did_web_domain});
 
 		if (!did_document)
 		json.error = 'identifier not found: ' + did_web;
@@ -1016,20 +1046,20 @@ class DidRegistriesServer {
 
 		var json = {};
 
-		let site_did_web_domain = this._getDidWebDomain(did_web);
+		let did_web_domain = this._getDidWebDomain(did_web);
 
-		if (!site_did_web_domain)
+		if (!did_web_domain)
 		return json;
 
-		let index = did_web.indexOf(site_did_web_domain);
-		let length = site_did_web_domain.length;
+		let index = did_web.indexOf(did_web_domain);
+		let length = did_web_domain.length;
 
 		if (!index)
 		return json;
 
 		let path = this._getPathFromDidWeb(did_web);
 
-		let did_document = await this.path_document({path, site_did_web_domain});
+		let did_document = await this.path_document({path, current_host: did_web_domain});
 
 		if (!did_document)
 		json.error = 'identifier not found: ' + did_web;
@@ -1045,7 +1075,7 @@ class DidRegistriesServer {
 
 			attribute.issuerType = 'TI';
 			attribute.tao = await this._getTaoFromDidWeb(did_web);
-			attribute.rootTao = this._getSiteRootDidWeb(site_did_web_domain);
+			attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
 
 			attributes. push(attribute);
 		}
@@ -1055,7 +1085,7 @@ class DidRegistriesServer {
 
 			attribute.issuerType = 'TAO';
 			attribute.tao = await this._getTaoFromDidWeb(did_web);
-			attribute.rootTao = this._getSiteRootDidWeb(site_did_web_domain);
+			attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
 
 			attributes. push(attribute);
 		}
