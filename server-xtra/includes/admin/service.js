@@ -53,7 +53,7 @@ class Service {
 		app.delete('/admin');
 
 		// static files (we overload ethereum_webapp /admin)
-		app.use('/admin/', express.static(path.join(__dirname,  adminappxtraroot + '/public')));
+		app.use('/admin/public/', express.static(path.join(__dirname,  adminappxtraroot + '/public')));
 
 		// view engine setup
 		app.set('views', path.join(__dirname,  adminapproot + '/views'));
