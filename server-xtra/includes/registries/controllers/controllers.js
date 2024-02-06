@@ -324,7 +324,7 @@ class RegistriesControllers {
 			}
 			else if (did.startsWith('did:web')) {
 				let auth_did_key = auth_token.did;
-				let did_web_domain = didregistriesservice._getDidWebDomain(did);
+				let did_web_domain = didregistriesserver._getDidWebDomain(did);
 				let did_web_array = await didregistriesserver.getDidWebListFromDidKey(auth_did_key, did_web_domain);
 
 				for (var i = 0; i < did_web_array.length; i++) {

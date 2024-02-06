@@ -198,6 +198,9 @@ class DidRegistriesServer {
 	async _getDidKeyJwk(did_key) {
 		let doc = await this._resolveDidKey(did_key);
 
+		if (!doc || !doc.verificationMethod)
+		return;
+
 		return doc.verificationMethod[0].publicKeyJwk;
 	}
 
@@ -692,10 +695,21 @@ class DidRegistriesServer {
 
 		let publicKeyJWK = await this._getDidKeyJwk(did_key);
 
+		if (!publicKeyJWK) {
+			json.error = 'could not find public key of: ' + path;
+			return json;
+		}
+
 		let tumbprint = await JwCryptoKeys.computeThumbprint(publicKeyJWK, 'sha256');
 		let kid_web = did_web + '#' + tumbprint;
 
 		json = await this._resolveDidKey(did_key);
+
+		if (!json.verificationMethod) {
+			json.error = 'Could not resolve key for: ' + path;
+			
+			return json;
+		}
 
 		json.id = did_web;
 
@@ -900,6 +914,11 @@ class DidRegistriesServer {
 
 		let publicKeyJWK = await this._getDidKeyJwk(reporter_did_key);
 
+		if (!publicKeyJWK) {
+			json.error = 'could not find public key of: ' + path;
+			return json;
+		}
+
 		let alg = algorithm.alg;
 		let jwkKeyPair = {alg, publicKey: publicKeyJWK};
 
@@ -1067,28 +1086,32 @@ class DidRegistriesServer {
 		let attributes = [];
 
 		let sub_identifier = await this._getIdentifierFromDidWeb(did_web);
+
+		if (sub_identifier) {
+			let sub_rights = sub_identifier.rights;
+
+			if (sub_rights & 0b00000100) {
+				let attribute = {};
+	
+				attribute.issuerType = 'TI';
+				attribute.tao = await this._getTaoFromDidWeb(did_web);
+				attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
+	
+				attributes. push(attribute);
+			}
+	
+			if (sub_rights & 0b00001000) {
+				let attribute = {};
+	
+				attribute.issuerType = 'TAO';
+				attribute.tao = await this._getTaoFromDidWeb(did_web);
+				attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
+	
+				attributes. push(attribute);
+			}
+		}
 		
-		let sub_rights = sub_identifier.rights;
 
-		if (sub_rights & 0b00000100) {
-			let attribute = {};
-
-			attribute.issuerType = 'TI';
-			attribute.tao = await this._getTaoFromDidWeb(did_web);
-			attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
-
-			attributes. push(attribute);
-		}
-
-		if (sub_rights & 0b00001000) {
-			let attribute = {};
-
-			attribute.issuerType = 'TAO';
-			attribute.tao = await this._getTaoFromDidWeb(did_web);
-			attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
-
-			attributes. push(attribute);
-		}
 
 		json.attributes = attributes;
 
