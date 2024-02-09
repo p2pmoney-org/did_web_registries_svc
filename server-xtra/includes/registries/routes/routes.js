@@ -102,6 +102,8 @@ class RegistriesRoutes {
 
 		app.route(route_root_path + '/did/identifiers/:did')
 		.get(function(req, res) { controllers.did_registry_did_document(req, res); });
+		app.route(route_root_path + '/did/identifiers/:did/details')
+		.get(function(req, res) { controllers.did_registry_did_document_details(req, res); });
 
 		// identifier attributes
 		app.route(route_root_path + '/did/identifiers/:did/attributes')

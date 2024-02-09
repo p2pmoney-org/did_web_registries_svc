@@ -782,7 +782,7 @@ class DidRegistriesServer {
 		}
 
 		return did_web;
-}
+	}
 
 	_getPathFromDidWeb(did_web) {
 
@@ -862,6 +862,43 @@ class DidRegistriesServer {
 
 		if (!json.error)
 		json = did_document;
+
+		return json;
+	}
+
+	async did_registry_did_document_details(did_web, options) {
+		var json = {};
+
+		let did_web_domain = this._getDidWebDomain(did_web);
+
+		let path = this._getPathFromDidWeb(did_web);
+
+		let did_document = await this.path_document({path, current_host: did_web_domain});
+
+		if (!did_document)
+		json.error = 'identifier not found: ' + did_web;
+
+		let identifier = await this._getIdentifierFromDidWeb(did_web);
+		let identifier_status = identifier.identifier_status;
+
+		if ((identifier_status & 0b00000001) === 0) 
+		json.error = 'identifier deactivated: ' + did_web;
+
+		if ((identifier.identifier_status) & 0b00000010 === 0) 
+		json.error = 'identifier is not accessible: ' + did_web;
+
+		let path_status = identifier.path_status;
+
+		if ((path_status & 0b00000001) === 0) 
+		json.error = 'did:web deactivated: ' + did_web;
+
+		if (!json.error) {
+			json.did = did_web;
+			json.path = path;
+			json.identifier_status = identifier_status;
+			json.path_status = path_status;
+			json.path_rights = this._getIdentifierPathRights(identifier);
+		}
 
 		return json;
 
@@ -1251,6 +1288,7 @@ class DidRegistriesServer {
 			item.credential_hash = credential_status_list[i].credential_hash;
 			item.credential_status = credential_status_list[i].credential_status;
 			item.modified_on = credential_status_list[i].modified_on;
+			item.path = credential_status_list[i].modifier_path;
 			item.did = this._getDidWebFromPath(credential_status_list[i].modifier_path, did_web_domain);
 
 			history_list.push(item);
@@ -1268,9 +1306,9 @@ class DidRegistriesServer {
 		let modifier_did_web = params.modifier_did;
 
 		let modifier_identifier = await this._getIdentifierFromDidWeb(modifier_did_web);
-		let modifier_did_key = modifier_identifier.did;
+		let modifier_path = modifier_identifier.path;
 
-		let credential_status_list = await this.persistor.getCredentialStatusListAsync(credential_hash, modifier_did_key);
+		let credential_status_list = await this.persistor.getCredentialStatusListAsync(credential_hash, modifier_path);
 
 		let modifications_list = [];
 
@@ -1296,18 +1334,20 @@ class DidRegistriesServer {
 		let modifier_did_key = auth_token.did;
 
 		let credential_hash = params.credential_hash;
+		let as_did_web = params.as_did;
 
-		let identifier_record = await this._getIdentifierFromDidKey(modifier_did_key).catch(err => {});
+		//let identifier_record = await this._getIdentifierFromDidKey(modifier_did_key).catch(err => {});
+		let identifier_record = await this._getIdentifierFromDidWeb(as_did_web).catch(err => {});
 
 		if (!identifier_record) {
-			json.error = 'did is not registered: ' + did_key;
+			json.error = 'did is not registered: ' + as_did_web;
 
 			return json;
 		}
 
 		let record = {};
 
-		record.modifier_did = modifier_did_key;
+		record.modifier_path = identifier_record.path;
 		record.credential_hash = credential_hash;
 		record.credential_status = 0;
 
@@ -1326,18 +1366,20 @@ class DidRegistriesServer {
 		let modifier_did_key = auth_token.did;
 
 		let credential_hash = params.credential_hash;
+		let as_did_web = params.as_did;
 
-		let identifier_record = await this._getIdentifierFromDidKey(modifier_did_key).catch(err => {});
+		//let identifier_record = await this._getIdentifierFromDidKey(modifier_did_key).catch(err => {});
+		let identifier_record = await this._getIdentifierFromDidWeb(as_did_web).catch(err => {});
 
 		if (!identifier_record) {
-			json.error = 'did is not registered: ' + did_key;
+			json.error = 'did is not registered: ' + as_did_web;
 
 			return json;
 		}
 
 		let record = {};
 
-		record.modifier_did = modifier_did_key;
+		record.modifier_path = identifier_record.path;
 		record.credential_hash = credential_hash;
 		record.credential_status = 1;
 

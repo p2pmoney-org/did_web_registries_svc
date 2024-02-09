@@ -393,6 +393,29 @@ class RegistriesControllers {
 		return isAuthorized;
 	}
 
+	async _isAuthenticatedForPath(global, path, access_token) {
+		let isAuthorized = false;
+
+		if (!path)
+			return isAuthorized;
+
+		var didregistriesservice = global.getServiceInstance('did-registries');
+		let didregistriesserver = didregistriesservice.getDidRegistriesServerInstance();
+
+		let sub_indentifier = await didregistriesserver._getIdentifierFromPath(path);
+		let authorizationserver = didregistriesservice.getAuthorizationServerInstance();
+
+		let auth_token = await authorizationserver.getAuthToken(access_token);
+
+		let sub_did_key = (sub_indentifier && sub_indentifier.did ? sub_indentifier.did : null);
+
+		if (auth_token && auth_token.authenticated && auth_token.did && (auth_token.did == sub_did_key)) {
+			isAuthorized = true;
+		}
+		
+		return isAuthorized;
+	}
+
 	//
 	// did:key
 	async did_key(req, res) {
@@ -848,6 +871,34 @@ class RegistriesControllers {
 		res.json(jsonresult);
 	}
 
+	async did_registry_did_document_details(req, res) {
+		// GET
+		var global = this.global;
+
+		global.log("did_registry_did_document_details called");
+
+		let did = req.params.did;
+
+
+		var jsonresult
+		
+		try {
+			var didregistriesservice = global.getServiceInstance('did-registries');
+			let didregistriesserver = didregistriesservice.getDidRegistriesServerInstance();
+			
+			let options = {};
+			jsonresult = await didregistriesserver.did_registry_did_document_details(did, options);
+		}
+		catch(e) {
+			global.log("exception in RegistriesControllers.did_registry_did_document_details: " + e);
+			
+			jsonresult = {status: 0, error: "could not retrieve information"};
+		}
+
+		res.json(jsonresult);
+	}
+
+
 	// identifier attributes
 	async did_registry_identifier_attributes(req, res) {
 		var global = this.global;
@@ -1294,6 +1345,7 @@ class RegistriesControllers {
 		let access_token = this._parseAccessTokenFromRequests(req);
 		
 		var credential_hash  = req.body.credential_hash;
+		var as_did  = req.body.as_did;
 		
 		var jsonresult;
 		
@@ -1309,12 +1361,12 @@ class RegistriesControllers {
 			let authorizationserver = didregistriesservice.getAuthorizationServerInstance();
 	
 			let auth_token = await authorizationserver.getAuthToken(access_token);
-			let isAuthenticated = (auth_token && auth_token.authenticated ? true : false);
-	
-			if (isAuthenticated) {
+			let did_path = didregistriesserver._getPathFromDidWeb(as_did);
+			let isAuthenticated = await this._isAuthenticatedForPath(global, did_path, access_token);
 
+			if (isAuthenticated) {
 				let options = {auth_token};
-				let params = {credential_hash};
+				let params = {credential_hash, as_did};
 				let result = await didregistriesserver.issuer_credential_revoke(session_section, options, params);
 				
 				jsonresult = Object.assign({status: 1}, result);
@@ -1344,6 +1396,7 @@ class RegistriesControllers {
 		let access_token = this._parseAccessTokenFromRequests(req);
 		
 		var credential_hash  = req.body.credential_hash;
+		var as_did  = req.body.as_did;
 		
 		var jsonresult;
 		
@@ -1359,11 +1412,12 @@ class RegistriesControllers {
 			let authorizationserver = didregistriesservice.getAuthorizationServerInstance();
 	
 			let auth_token = await authorizationserver.getAuthToken(access_token);
-			let isAuthenticated = (auth_token && auth_token.authenticated ? true : false);
-	
+			let did_path = didregistriesserver._getPathFromDidWeb(as_did);
+			let isAuthenticated = await this._isAuthenticatedForPath(global, did_path, access_token);
+
 			if (isAuthenticated) {
 				let options = {auth_token};
-				let params = {credential_hash};
+				let params = {credential_hash, as_did};
 				let result = await didregistriesserver.issuer_credential_enact(session_section, options, params);
 				
 				jsonresult = Object.assign({status: 1}, result);

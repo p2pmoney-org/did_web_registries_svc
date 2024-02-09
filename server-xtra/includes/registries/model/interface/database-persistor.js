@@ -823,7 +823,7 @@ class DataBasePersistor {
 		return record;
 	}
 
-	async getIdentifierFromPathAsync(path) {
+	async _getIdentifierFromPathAsync(path) {
 		// Note: today we have only one Identifier for each path (UNIQUE KEY `Path` (`Path`))
 		// if we want to have support multiple Dids for a path (e.g. for key rotations)
 		// we'll need to implement getIdentifierListFromPathAsync instead
@@ -863,11 +863,13 @@ class DataBasePersistor {
 			if (rows[0]) {
 				var row = rows[0];
 				
+				record['identifier_id'] = row['IdentifierId'];
 				record['identifier_uuid'] = row['IdentifierUUID'];
 				record['identifier_status'] = row['IdentifierStatus'];
 
 				record['did'] = row['DidKey'];
 
+				record['path_id'] = row['PathId'];
 				record['path_uuid'] = row['PathUUID'];
 				record['path_status'] = row['PathStatus'];
 				record['path'] = row['Path'];
@@ -884,6 +886,23 @@ class DataBasePersistor {
 		return record;
 	}
 
+	async getIdentifierFromPathAsync(path) {
+		var record = {};
+
+		let row = await this._getIdentifierFromPathAsync(path);
+
+		record['identifier_uuid'] = row['identifier_uuid'];
+		record['identifier_status'] = row['identifier_status'];
+
+		record['did'] = row['did'];
+
+		record['path_uuid'] = row['path_uuid'];
+		record['path_status'] = row['path_status'];
+		record['path'] = row['path'];
+		record['rights'] = row['rights'];
+
+		return record;
+	}
 
 	//
 	// attributes
@@ -1098,7 +1117,6 @@ class DataBasePersistor {
 	// credential status lists
 	async getCredentialStatusHistoryAsync(credential_hash) {
 		var global = this.global;
-
 		
 		var array = [];
 		
@@ -1113,7 +1131,7 @@ class DataBasePersistor {
 		sql += " FROM " + tablename;
 
 		sql += " INNER JOIN " + pathstablename;
-		sql += " ON " + tablename + ".ModifiedBy=" + pathstablename + ".IdentifierId";
+		sql += " ON " + tablename + ".ModifiedBy=" + pathstablename + ".PathId";
 		
 		sql += " WHERE CredentialHash=" + _credential_hash;
 		sql += " ORDER BY ModifiedOn DESC;";
@@ -1155,16 +1173,16 @@ class DataBasePersistor {
 		return array;
 	}
 
-	async getCredentialStatusListAsync(credential_hash, modifier_did) {
+	async getCredentialStatusListAsync(credential_hash, modifier_path) {
 		var global = this.global;
 
-		if (!modifier_did || !credential_hash  )
+		if (!modifier_path || !credential_hash  )
 		return;
 	
-		var _modifier_record = await this._getIdentifierAsyncFromDid(modifier_did);
+		var _modifier_record = await this._getIdentifierFromPathAsync(modifier_path);
 
-		if ((!_modifier_record) || (!_modifier_record['id']))
-		throw new Error('identifier not found for did: ' + _modifier_record);
+		if ((!_modifier_record) || (!_modifier_record['patt_id']))
+		throw new Error('identifier not found for path: ' + modifier_path);
 
 		
 		var array = [];
@@ -1177,7 +1195,7 @@ class DataBasePersistor {
 
 		var sql = "SELECT * FROM " + tablename;
 		sql += " WHERE CredentialHash=" + _credential_hash;
-		sql += " AND ModifiedBy=" + _modifier_record['id'];
+		sql += " AND ModifiedBy=" + _modifier_record['path_id'];
 		sql += " ORDER BY ModifiedOn DESC;";
 		
 		// open connection
@@ -1218,17 +1236,17 @@ class DataBasePersistor {
 	async putCredentialStatusAsync(record) {
 		var global = this.global;
 
-		var modifier_did = record['modifier_did'];
+		var modifier_path = record['modifier_path'];
 		var credential_hash = record['credential_hash'];
 		var credential_status = ( record['credential_status'] !== undefined ?  record['credential_status'] : 1);
 
-		if (!modifier_did || !credential_hash  )
+		if (!modifier_path || !credential_hash  )
 			return;
 		
-		var _modifier_record = await this._getIdentifierAsyncFromDid(modifier_did);
+		var _modifier_record = await this._getIdentifierFromPathAsync(modifier_path);
 
-		if ((!_modifier_record) || (!_modifier_record['id']))
-		throw new Error('identifier not found for did: ' + _modifier_record);
+		if ((!_modifier_record) || (!_modifier_record['path_id']))
+		throw new Error('identifier not found for path: ' + modifier_path);
 
 
 		var mysqlcon = await global.getMySqlConnectionAsync();
@@ -1237,7 +1255,7 @@ class DataBasePersistor {
 
 		var _credential_hash = await mysqlcon.escapeAsync(credential_hash);
 		var _credential_status = await mysqlcon.escapeAsync(credential_status);
-		var _modifier_id = await mysqlcon.escapeAsync(_modifier_record['id']);
+		var _modifier_path_id = await mysqlcon.escapeAsync(_modifier_record['path_id']);
 
 		var sql;
 		
@@ -1252,7 +1270,7 @@ class DataBasePersistor {
 		  VALUES (
 			` + _credential_hash + `,
 			` + _credential_status + `,
-			` + _modifier_id + `
+			` + _modifier_path_id + `
 		  );`;
 		
 		
