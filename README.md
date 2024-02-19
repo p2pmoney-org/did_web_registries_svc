@@ -5,11 +5,11 @@ Installation is done in two steps.
 First step: container setup
 ------------------------------------
 
-To install your container run , as root, or as a user with docker privileges, from the directory (e.g. /home/myuser/did_web_registries_svc) where you want to install volume files the command line:
+To install your container run, as root, or as a user with docker privileges, from the directory (e.g. /home/myuser/did_web_registries_svc) where you want to install volume files the command line:
 
-`$ docker run -i -t -e IMAGE_NAME=primusmoney/did_web_registries_svc:latest -e HOME_ROOT_HOST_DIR=$(pwd) -v $(pwd):/homedir --entrypoint /home/root/setup/setup-container-starter.sh primusmoney/did_web_registries_svc:latest`
+`$ docker run -i -t -e IMAGE_NAME=p2pmoney/did_web_registries_svc:latest -e HOME_ROOT_HOST_DIR=$(pwd) -v $(pwd):/homedir --entrypoint /home/root/setup/setup-container-starter.sh p2pmoney/did_web_registries_svc:latest`
 
-Setup will guide you in defining the user under which the application will run, the ports that will be exposed (e.g. 8000 for http access, 3336 for mysql,...).
+Setup will guide you in defining the user under which the application will run inside the containers (e.g. 1000), the ports that will be exposed (e.g. 8000 for http access, 3336 for mysql,...).
 
 Second step: application setup
 -------------------------------------------
@@ -21,12 +21,12 @@ Then call from your browser the setup url:
 
 `http://servername:port/admin`
 
-(e.g. http://localhost:8000/admin, or http://192.168.0.1:8000/admin,...). You will then define the mysql root password, application user, REST url,...
+(e.g. http://localhost:8000/admin, or http://192.168.0.1:8000/admin,...). You will then define the internal mysql root password, application user, REST url,...
 
 Site management
 ===============
 
-Administration of your site will then be accessible through the admin url:
+Administration of your container site will then be accessible through the admin url:
 
 `http://servername:port/admin`
 
@@ -135,3 +135,14 @@ If you are using nginx, forwarding will look like this:
 		}
 	}
 ```
+
+Disclaimers
+===========
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
