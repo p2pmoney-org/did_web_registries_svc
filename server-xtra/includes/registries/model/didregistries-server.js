@@ -310,7 +310,7 @@ class DidRegistriesServer {
 		identifier.path_uuid= 'root';
 		identifier.path_status = 1;
 		identifier.path = '/';
-		identifier.rights = 15;
+		identifier.rights = 31;
 
 		return identifier;
 	}
@@ -1141,6 +1141,16 @@ class DidRegistriesServer {
 				let attribute = {};
 	
 				attribute.issuerType = 'TAO';
+				attribute.tao = await this._getTaoFromDidWeb(did_web);
+				attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
+	
+				attributes. push(attribute);
+			}
+				
+			if (sub_rights & 0b00010000) {
+				let attribute = {};
+	
+				attribute.issuerType = 'RootTAO';
 				attribute.tao = await this._getTaoFromDidWeb(did_web);
 				attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
 	

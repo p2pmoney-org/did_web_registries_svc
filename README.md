@@ -38,7 +38,7 @@ You will authenticate with your mysql root password.
 Exposing did:web registries
 ===========================
 
-To expose your did:web registries, and make your registered dids resolvable from the internet, you need to expose one one side, the entry-point to allowing resolution of web path to did.json documents, and on the other side, optionally, expose an API entry-point to let external wallets register and manage did documents, accreditations, revokations.
+To expose your did:web registries, and make your registered dids resolvable from the internet, you need to expose one one side, the entry-point allowing resolution of web path to did.json documents, and on the other side, optionally, expose an API entry-point letting external wallets register and manage did documents, accreditations, revokations.
 
 Did documents resolution
 ------------------------
