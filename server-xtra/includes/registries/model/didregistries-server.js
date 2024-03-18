@@ -734,7 +734,26 @@ class DidRegistriesServer {
 
 		let did_web_domain = options.did_web_domain;
 
-		let _identifiers = await this.persistor.getIdentifierPathChunkListAsync(pageafter, pagesize);
+		let _pageafter = pageafter;
+		let _pagesize = pagesize;
+
+		if (pageafter == 1) {
+			// we introduce root identifier as first element
+			let identifier = this._getSiteRootDidWeb(did_web_domain);
+			let item = {};
+
+			item.status = identifier.identifier_status & identifier.path_status;
+			item.uuid = identifier.path_uuid;
+
+			item.did = this._getIdentifierDidWeb(identifier, did_web_domain);
+			item.rights = this._getIdentifierPathRights(identifier);
+
+			items.push(item);
+
+			_pagesize = pagesize - 1;
+		}
+
+		let _identifiers = await this.persistor.getIdentifierPathChunkListAsync(_pageafter, _pagesize);
 
 		for (var i = 0; i < _identifiers.length; i++) {
 			let identifier = _identifiers[i];
@@ -1076,7 +1095,26 @@ class DidRegistriesServer {
 		let items = [];
 
 
-		let _issuers = await this.persistor.getIssuerChunkListAsync(pageafter, pagesize);
+		let _pageafter = pageafter;
+		let _pagesize = pagesize;
+
+		if (pageafter == 1) {
+			// we introduce root identifier as first element
+			let identifier = this._getSiteRootDidWeb(did_web_domain);
+			let item = {};
+
+			item.status = identifier.identifier_status & identifier.path_status;
+			item.uuid = identifier.path_uuid;
+
+			item.did = this._getIdentifierDidWeb(identifier, did_web_domain);
+			item.rights = this._getIdentifierPathRights(identifier);
+
+			items.push(item);
+
+			_pagesize = pagesize - 1;
+		}
+
+		let _issuers = await this.persistor.getIssuerChunkListAsync(_pageafter, _pagesize);
 
 		for (var i = 0; i < _issuers.length; i++) {
 			let issuer = _issuers[i];
