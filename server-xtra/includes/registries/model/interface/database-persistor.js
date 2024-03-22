@@ -134,7 +134,7 @@ class DataBasePersistor {
 	}
 
 
-	async getIdentifierPathChunkListAsync(pageafter, pagesize) {
+	async getIdentifierPathChunkListAsync(offset, chunksize) {
 		var global = this.global;
 		
 		var array = [];
@@ -145,14 +145,12 @@ class DataBasePersistor {
 		var tablename = mysqlcon.getTableName('registries_identifiers');
 		var pathstablename = mysqlcon.getTableName('registries_identifier_paths');
 
-		let offset = (pageafter > 1 ? pageafter - 1 : 0) * pagesize;
-
 		var sql = "SELECT * FROM " + tablename;
 
 		sql += " INNER JOIN " + pathstablename;
 		sql += " ON " + tablename + ".IdentifierId=" + pathstablename + ".IdentifierId";
 
-		sql += " LIMIT " + offset + "," + pagesize + ";";
+		sql += " LIMIT " + offset + "," + chunksize + ";";
 		
 		// open connection
 		await mysqlcon.openAsync();
@@ -190,6 +188,13 @@ class DataBasePersistor {
 			
 			
 		return array;
+	}
+
+	async getIdentifierPathPagedListAsync(pageafter, pagesize) {
+		let offset = (pageafter > 1 ? pageafter - 1 : 0) * pagesize;
+		let chunksize = pagesize;
+
+		return this.getIdentifierPathChunkListAsync(offset, chunksize);
 	}
 
 	//
@@ -236,7 +241,7 @@ class DataBasePersistor {
 		return count;
 	}
 	
-	async getIssuerChunkListAsync(pageafter, pagesize) {
+	async getIssuerChunkListAsync(offset, chunksize) {
 		var global = this.global;
 		
 		var array = [];
@@ -247,8 +252,6 @@ class DataBasePersistor {
 		var tablename = mysqlcon.getTableName('registries_identifiers');
 		var pathstablename = mysqlcon.getTableName('registries_identifier_paths');
 
-		let offset = (pageafter > 1 ? pageafter - 1 : 0) * pagesize;
-
 		var sql = "SELECT * FROM " + tablename;
 
 		sql += " INNER JOIN " + pathstablename;
@@ -256,7 +259,7 @@ class DataBasePersistor {
 
 		sql += " WHERE " + pathstablename + ".Rights & 1 = 1 AND (" + pathstablename + ".Rights & 4 = 4 OR " + pathstablename + ".Rights & 8 = 8)";
 
-		sql += " LIMIT " + offset + "," + pagesize + ";";
+		sql += " LIMIT " + offset + "," + chunksize + ";";
 		
 		// open connection
 		await mysqlcon.openAsync();
@@ -294,6 +297,13 @@ class DataBasePersistor {
 			
 			
 		return array;
+	}
+
+	async getIssuerPagedListAsync(pageafter, pagesize) {
+		let offset = (pageafter > 1 ? pageafter - 1 : 0) * pagesize;
+		let chunksize = pagesize;
+
+		return this.getIssuerChunkListAsync(offset, chunksize);
 	}
 
 	//

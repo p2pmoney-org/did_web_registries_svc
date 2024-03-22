@@ -729,13 +729,13 @@ class DidRegistriesServer {
 	async did_registry_identifiers(pageafter, pagesize, options) {
 		var json = {};
 
-		let count = await this.persistor.getIdentifierPathListCountAsync();
+		let count = await this.persistor.getIdentifierPathListCountAsync() + 1; // + 1 for root identifer
 		let items = [];
 
 		let did_web_domain = options.did_web_domain;
 
-		let _pageafter = pageafter;
-		let _pagesize = pagesize;
+		let offset;
+		let chunksize;
 
 		if (pageafter == 1) {
 			// we introduce root identifier as first element
@@ -750,10 +750,15 @@ class DidRegistriesServer {
 
 			items.push(item);
 
-			_pagesize = pagesize - 1;
+			offset = 0;
+			chunksize = pagesize - 1;
+		}
+		else {
+			offset = (pageafter - 1) * pagesize - 1;
+			chunksize = pagesize;
 		}
 
-		let _identifiers = await this.persistor.getIdentifierPathChunkListAsync(_pageafter, _pagesize);
+		let _identifiers = await this.persistor.getIdentifierPathChunkListAsync(offset, chunksize);
 
 		for (var i = 0; i < _identifiers.length; i++) {
 			let identifier = _identifiers[i];
@@ -1091,15 +1096,16 @@ class DidRegistriesServer {
 
 		let did_web_domain = options.did_web_domain;
 
-		let count = await this.persistor.getIssuerListCountAsync();
+		let count = await this.persistor.getIssuerListCountAsync() + 1; // + 1 for root issuer
 		let items = [];
 
 
-		let _pageafter = pageafter;
-		let _pagesize = pagesize;
+		let offset;
+		let chunksize;
+
 
 		if (pageafter == 1) {
-			// we introduce root identifier as first element
+			// we introduce root issuer as first element
 			let identifier = this._getSiteRootDidWeb(did_web_domain);
 			let item = {};
 
@@ -1111,10 +1117,15 @@ class DidRegistriesServer {
 
 			items.push(item);
 
-			_pagesize = pagesize - 1;
+			offset = 0;
+			chunksize = pagesize - 1;
+		}
+		else {
+			offset = (pageafter - 1) * pagesize - 1;
+			chunksize = pagesize;
 		}
 
-		let _issuers = await this.persistor.getIssuerChunkListAsync(_pageafter, _pagesize);
+		let _issuers = await this.persistor.getIssuerChunkListAsync(offset, chunksize);
 
 		for (var i = 0; i < _issuers.length; i++) {
 			let issuer = _issuers[i];

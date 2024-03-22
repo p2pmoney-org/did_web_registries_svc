@@ -5,7 +5,7 @@ class Service {
 		
 		this.global = null;
 
-		this.current_version = "0.40.42.2024.03.18";
+		this.current_version = "0.40.43.2024.03.22";
 	}
 
 	loadService() {
