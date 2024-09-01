@@ -920,7 +920,7 @@ class DataBasePersistor {
 		var global = this.global;
 
 		//
-		// insert data in path table
+		// insert data in identifier_attributes table
 		var attribute = record['attribute'];
 		var attribute_uuid = record['attribute_uuid'];
 		var attribute_status = (record['attribute_status'] !== undefined ? record['attribute_status'] : 1);
@@ -989,6 +989,164 @@ class DataBasePersistor {
 		await mysqlcon.closeAsync();
 	}
 
+	async updateIdentifierAttribute(did, attribute_uuid, record) {
+		var global = this.global;
+
+		//
+		// update data in identifier_attributes table
+		var attribute_status = (record['attribute_status'] !== undefined ? record['attribute_status'] : 1);
+
+		if (!did || !attribute_uuid )
+			return;
+
+		let _identifier_record = await this._getIdentifierAsyncFromDid(did);
+
+		if ((!_identifier_record) || (!_identifier_record['id']))
+			throw new Error('identifier not found for did: ' + did);
+		
+		var mysqlcon = await global.getMySqlConnectionAsync();
+		
+		var tablename = mysqlcon.getTableName('registries_identifier_attributes');
+
+		var _attribute_uuid = await mysqlcon.escapeAsync(attribute_uuid);
+		var _attribute_status = await mysqlcon.escapeAsync(attribute_status);
+
+
+		var sql;
+		
+		// open connection
+		await mysqlcon.openAsync();
+
+		sql = `UPDATE ` +  tablename + ` SET
+						AttributeStatus = ` + _attribute_status + `
+				WHERE AttributeUUID = ` + _attribute_uuid + `;`;
+
+
+		// execute query
+		var result = await mysqlcon.executeAsync(sql);
+
+		
+		// close connection
+		await mysqlcon.closeAsync();
+	}
+
+	async _getIdentifierAttributeAsync(did, attribute_uuid) {
+		var global = this.global;
+		
+		var record = {};
+		
+		if (!did || !attribute_uuid)
+			return record;
+
+		
+		var mysqlcon = await global.getMySqlConnectionAsync();
+		
+		var tablename = mysqlcon.getTableName('registries_identifiers');
+		var attributestablename = mysqlcon.getTableName('registries_identifier_attributes');
+		var attributebodiestablename = mysqlcon.getTableName('registries_identifier_attribute_bodies');
+
+		var _did = await mysqlcon.escapeAsync(did);
+		var _attribute_uuid = await mysqlcon.escapeAsync(attribute_uuid);
+		
+		var sql = "SELECT *";
+		sql += ", " + attributestablename + ".AttributeId AS Attribute_AttributeId"; // because left join can nullify AttributeId
+		sql += " FROM " + tablename;
+
+
+		sql += " INNER JOIN " + attributestablename;
+		sql += " ON " + tablename + ".IdentifierId=" + attributestablename + ".IdentifierId";
+
+		sql += " LEFT JOIN " + attributebodiestablename;
+		sql += " ON " + attributestablename + ".AttributeId=" + attributebodiestablename + ".AttributeId";
+
+		sql += " WHERE " + tablename + ".DidKey = " + _did;
+		sql += " AND " + attributestablename + ".AttributeUUID = " + _attribute_uuid + ";";
+		
+		// open connection
+		await mysqlcon.openAsync();
+		
+		// execute query
+		var result = await mysqlcon.executeAsync(sql);
+		
+		
+		if (result) {
+			var rows = (result['rows'] ? result['rows'] : []);
+			
+			if (rows[0]) {
+				var row = rows[0];
+
+				record['identifier_uuid'] = row['IdentifierUUID'];
+				record['identifier_status'] = row['IdentifierStatus'];
+
+				record['did'] = row['DidKey'];
+
+				record['attribute_id'] = row['Attribute_AttributeId'];
+				record['attribute_uuid'] = row['AttributeUUID'];
+				record['attribute_status'] = row['AttributeStatus'];
+				record['attribute'] = row['Attribute'];
+
+				record['reporter_level'] = row['ReporterLevel'];
+				record['reporter_signature'] = row['ReporterSignature'];
+
+				record['body'] = row['Body'];
+
+			}
+			
+		}
+		
+		
+		// close connection
+		await mysqlcon.closeAsync();
+			
+			
+		return record;
+	}
+
+	async addIdentifierAttributeBody(did, record) {
+		var global = this.global;
+
+		var attribute_uuid = record['attribute_uuid'];
+		var body = record['body'];
+
+		var _attribute_record = await this._getIdentifierAttributeAsync(did, attribute_uuid);
+
+		if ((!_attribute_record) || (!_attribute_record['attribute_id']))
+		throw new Error('attribute not found: ' + attribute_uuid);
+
+		if (_attribute_record.body)
+		throw new Error('attribute has already a body: ' + attribute_uuid);
+
+
+		var mysqlcon = await global.getMySqlConnectionAsync();
+
+		var _attribute_id = await mysqlcon.escapeAsync(_attribute_record['attribute_id']);
+		var _body = await mysqlcon.escapeAsync(body);
+
+		
+		var tablename = mysqlcon.getTableName('registries_identifier_attribute_bodies');
+
+		var sql;
+		
+		// open connection
+		await mysqlcon.openAsync();
+		
+		sql = `INSERT INTO ` +  tablename + ` (
+			AttributeId,
+			Body
+			)
+			VALUES (
+				` + _attribute_id + `,
+				` + _body + `
+		);`;
+
+		// execute query
+		var result = await mysqlcon.executeAsync(sql);
+
+		
+		// close connection
+		await mysqlcon.closeAsync();
+	}
+
 	async getIdentifierAttributeListAsync(did) {
 		var global = this.global;
 		
@@ -1002,6 +1160,7 @@ class DataBasePersistor {
 		
 		var tablename = mysqlcon.getTableName('registries_identifiers');
 		var attributestablename = mysqlcon.getTableName('registries_identifier_attributes');
+		var attributebodiestablename = mysqlcon.getTableName('registries_identifier_attribute_bodies');
 
 		var _did = await mysqlcon.escapeAsync(did);
 		
@@ -1009,6 +1168,9 @@ class DataBasePersistor {
 
 		sql += " INNER JOIN " + attributestablename;
 		sql += " ON " + tablename + ".IdentifierId=" + attributestablename + ".IdentifierId";
+
+		sql += " LEFT JOIN " + attributebodiestablename;
+		sql += " ON " + attributestablename + ".AttributeId=" + attributebodiestablename + ".AttributeId";
 
 		sql += " WHERE " + tablename + ".DidKey = " + _did + ";";
 		
@@ -1043,6 +1205,10 @@ class DataBasePersistor {
 				record['reporter_did'] = _reporter_identifier.did;
 				record['reporter_identifierstatus'] = _reporter_identifier.identifierstatus;
 
+
+				record['body'] = row['Body'];
+
+
 				array.push(record);
 			}
 			
@@ -1069,6 +1235,7 @@ class DataBasePersistor {
 		
 		var tablename = mysqlcon.getTableName('registries_identifiers');
 		var attributestablename = mysqlcon.getTableName('registries_identifier_attributes');
+		var attributebodiestablename = mysqlcon.getTableName('registries_identifier_attribute_bodies');
 
 		var _did = await mysqlcon.escapeAsync(did);
 		var _attribute_uuid = await mysqlcon.escapeAsync(attribute_uuid);
@@ -1077,6 +1244,9 @@ class DataBasePersistor {
 
 		sql += " INNER JOIN " + attributestablename;
 		sql += " ON " + tablename + ".IdentifierId=" + attributestablename + ".IdentifierId";
+
+		sql += " LEFT JOIN " + attributebodiestablename;
+		sql += " ON " + attributestablename + ".AttributeId=" + attributebodiestablename + ".AttributeId";
 
 		sql += " WHERE " + tablename + ".DidKey = " + _did;
 		sql += " AND " + attributestablename + ".AttributeUUID = " + _attribute_uuid + ";";
@@ -1111,6 +1281,9 @@ class DataBasePersistor {
 
 				record['reporter_did'] = _reporter_identifier.did;
 				record['reporter_identifierstatus'] = _reporter_identifier.identifierstatus;
+
+
+				record['body'] = row['Body'];
 
 			}
 			

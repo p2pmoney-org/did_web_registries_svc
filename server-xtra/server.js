@@ -18,9 +18,9 @@ if (process.env.ETHEREUM_WEBAPP_EXEC_DIR) {
 var global = Global.getGlobalInstance();
 
 //force logging
-global.releaseConsoleLog();
+/*global.releaseConsoleLog();
 global.enableLog(true);
-global.setExecutionEnvironment('dev');
+global.setExecutionEnvironment('dev');*/
 
 // prevent admin ui
 global.setConfigValue('start_no_admin_ui', true);
@@ -35,9 +35,6 @@ try {
 	global.registerServiceInstance(new Service());
 
 	// local services
-
-	//Service = require('./local/mytokens/service.js');
-	//global.registerServiceInstance(new Service());
 
 	// admin
 	Service = require('./includes/admin/service.js');

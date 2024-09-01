@@ -47,6 +47,13 @@ class RegistriesRoutes {
 		.get(function(req, res) { controllers.server(req, res); });
 
 		//
+		// admin, user-less, api calls
+		app.route(route_root_path + '/server/tables/create')
+		.post(function(req, res) { controllers.server_tables_create(req, res); });
+		app.route(route_root_path + '/server/tables/update')
+		.post(function(req, res) { controllers.server_tables_update(req, res); });
+
+		//
 		// configuration endpoints
 
 		// for openid
@@ -110,8 +117,8 @@ class RegistriesRoutes {
 		.get(function(req, res) { controllers.did_registry_identifier_attributes(req, res); });
 		app.route(route_root_path + '/did/identifiers/:did/attribute/add')
 		.post(function(req, res) { controllers.did_registry_identifier_attribute_add(req, res); });
-		app.route(route_root_path + '/did/identifiers/:did/attribute/deactivate')
-		.post(function(req, res) { controllers.did_registry_identifier_attribute_deactivate(req, res); });
+		app.route(route_root_path + '/did/identifiers/:did/attribute/update')
+		.post(function(req, res) { controllers.did_registry_identifier_attribute_update(req, res); });
 
 		// trust chain
 		app.route(route_root_path + '/did/trust_chain/:did')

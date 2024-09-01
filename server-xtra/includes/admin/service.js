@@ -20,6 +20,8 @@ class Service {
 		var global = this.global;
 		
 		global.registerHook('postInitServer_asynchook', this.name, this.postInitServer_asynchook);
+
+		global.registerHook('start_admin_ui_hook', this.name, this.start_admin_ui_hook);
 	}	
 
 	//
@@ -30,16 +32,34 @@ class Service {
 
 		global.log('postInitServer_asynchook called for ' + this.name);
 
+		result.push({service: this.name, handled: true});
+		
+		return true;
+	}
+
+	async start_admin_ui_hook(result, params) {
+		var global = this.global;
+
+		global.log('start_admin_ui_hook called for ' + this.name);
+
 		const app = global.getServiceInstance('ethereum_webapp').getWebApp();
 		
 		this.startAdminUI(app);
 
+		result.push({service: this.name, handled: true});
+		
+		return true;
 	}
 
 	startAdminUI(app) {
 		var global = this.global;
 		
-		global.log('startAdminUI called for didweb');
+		let bStartNoAdminUI = global.getConfigValue('start_no_admin_ui');
+	
+		if (bStartNoAdminUI !== true)
+		return; // we do not overload
+
+		global.log('startAdminUI called for ' + this.name);
 
 		const express = require('express');
 		const path = require('path');

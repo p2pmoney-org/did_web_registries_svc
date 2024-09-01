@@ -5,7 +5,7 @@ class Service {
 		
 		this.global = null;
 
-		this.current_version = "0.40.43.2024.03.22";
+		this.current_version = "0.50.50.2024.09.01";
 	}
 
 	loadService() {
@@ -184,7 +184,51 @@ class Service {
 				await mysqlcon.closeAsync();
 				
 			}
-			break;
+
+			case 'update_0.50.50': {
+
+				var tablename;
+				var sql;
+				
+				// open connection
+				await mysqlcon.openAsync();
+
+
+				//
+				// Creation of new tables
+				//
+				
+				// attribute_bodies
+				tablename = mysqlcon.getTableName('registries_identifier_attribute_bodies');
+				let foreign_tablename = mysqlcon.getTableName('registries_identifier_attributes');
+				sql = "CREATE TABLE IF NOT EXISTS ";
+			
+				sql += tablename;
+				sql += ` (  
+							AttributeId int(11) NOT NULL,
+							Body TEXT NOT NULL,
+				  
+							FOREIGN KEY (AttributeId) REFERENCES ` + foreign_tablename + ` (AttributeId)
+						)`;
+				
+				// execute query
+				var res = await mysqlcon.executeAsync(sql);
+
+				// close connection
+				await mysqlcon.closeAsync();
+
+
+
+				let currentversion = global.getCurrentVersion();
+				let now = new Date();
+				
+				let nowstring = global.formatDate(now, 'YYYY-mm-dd HH:MM:SS');
+				
+				let commonservice = global.getServiceInstance('common');
+				
+				await commonservice.saveGlobalParameterAsync('CurrentVersion', currentversion);
+				await commonservice.addGlobalParameterAsync('VersionUpdate', install_step + ';' + nowstring);
+			}
 
 			default:
 				break;
@@ -255,7 +299,9 @@ class Service {
 				config.site_root_did_key = (install_inputs.site_root_did_key ? install_inputs.site_root_did_key  : '');
 
 			}
-			break;
+
+			case 'update_0.50.50': {
+			}
 
 			default:
 				break;
@@ -278,7 +324,7 @@ class Service {
 		var global = params[1];
 		
 		//
-		// Verifiable Credentials routes
+		// Did Web Registries routes
 		//
 		var RegistriesRoutes = require( './routes/routes.js');
 		
@@ -287,11 +333,21 @@ class Service {
 		registriesroutes.registerRoutes();
 		
 		result.push({service: this.name, handled: true});
+		
+		return true;
 	}
 
 	//
 	// functions
 	//
+
+	getRegistriesServerInfo() {
+		let json = {};
+
+		json.registries_version = this.current_version;
+
+		return json;
+	}
 
 	getAuthorizationServerInstance() {
 		if (this.authorizationserverinstance)

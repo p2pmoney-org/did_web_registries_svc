@@ -10,6 +10,20 @@ class RegistriesControllers {
 		this.global = global;
 	}
 
+	//
+	// parsing functions
+	getCalltokenJson(calltoken) {
+		if (calltoken && (calltoken.charAt(0) == '{')) {
+			// try to transform it into an object
+			try {
+				var calltokenjson = JSON.parse(calltoken);
+
+				return calltokenjson;
+			}
+			catch(e) {
+			}
+		}
+	}
 
 	_parseAccessTokenFromRequests(req) {
 		let headers = req.headers;
@@ -38,14 +52,14 @@ class RegistriesControllers {
 		var global = this.global;
 		
 		try {
-			var verifiablecredentialinfo = {};
+			var didwebregistriesinfo = {};
 			
 			var now = new Date();
 			var nowstring = global.formatDate(now, 'YYYY-mm-dd HH:MM:SS');
 			
-			verifiablecredentialinfo.servertime = nowstring;
+			didwebregistriesinfo.servertime = nowstring;
 			
-			jsonresult = {status: 1, data: verifiablecredentialinfo};
+			jsonresult = {status: 1, data: didwebregistriesinfo};
 		}
 		catch(e) {
 			global.log("exception in RegistriesControllers.root: " + e);
@@ -64,9 +78,9 @@ class RegistriesControllers {
 		var now = new Date();
 		var nowstring = global.formatDate(now, 'YYYY-mm-dd HH:MM:SS');
 		
-		var verifiablecredentialsservice = global.getServiceInstance('did-registries');
+		var didregistriesservice = global.getServiceInstance('did-registries');
 		
-		var version = (verifiablecredentialsservice ? (verifiablecredentialsservice.current_version ? verifiablecredentialsservice.current_version : global.getCurrentVersion()) : null);
+		var version = (didregistriesservice ? (didregistriesservice.current_version ? didregistriesservice.current_version : global.getCurrentVersion()) : null);
 		var versioninfo = global.getVersionInfo();
 		
 		var jsonresult = {status: 1, version:  version, versioninfo: versioninfo, servertime: nowstring};
@@ -85,9 +99,9 @@ class RegistriesControllers {
 		try {
 			var registriesservice = global.getServiceInstance('did-registries');
 
-			var verifiablecredentialinfo = await registriesservice.getRegisitriesServerInfo();
+			var info = await registriesservice.getRegistriesServerInfo();
 			
-			jsonresult = {status: 1, data: verifiablecredentialinfo};
+			jsonresult = {status: 1, data: info};
 			
 		}
 		catch(e) {
@@ -100,6 +114,159 @@ class RegistriesControllers {
 		res.json(jsonresult);
 	}
 
+	//
+	// Admin API
+	//
+
+	//
+	// admin, user-less, api calls
+
+	// database
+	async server_tables_create(req, res) {
+		// POST
+		var global = this.global;
+		var sessionuuid = req.get("sessiontoken");
+		var calltoken = req.get("calltoken");
+		var calltokenjson = this.getCalltokenJson(calltoken);
+		
+		global.log("server_tables_create called for sessiontoken " + sessionuuid);
+
+		var api_secret = req.body.api_secret;
+		var rootpassword = req.body.rootpassword;
+		
+		var install_step = req.body.install_step;
+
+		var commonservice = global.getServiceInstance('common');
+		var Session = commonservice.Session;
+
+		var jsonresult;
+
+		try {
+			var session_section = Session.openSessionSection(global, sessionuuid, 'server_tables_create', calltokenjson);
+			var session = await session_section._safe_sessionAsync();
+
+			let didregistriesservice = global.getServiceInstance('did-registries');
+			let authorizationserver = didregistriesservice.getAuthorizationServerInstance();
+	
+			let isAdminApiCall = await authorizationserver.isSiteAdminApiCall(api_secret);
+			if (isAdminApiCall) {
+				let mysql_database = global.getConfigValue('mysql_database');
+				let mysql_table_prefix = global.getConfigValue('mysql_table_prefix');
+
+				// call 'installMysqlTables_asynchook' just for did-registries service
+				let _result = [];
+		
+				let _params = [];
+				
+				// session
+				_params.push(session);
+				
+				// mysql connection
+				let org_mysqlcon = await global.getMySqlConnectionAsync();
+				let mysqlcon = org_mysqlcon.clone();
+		
+				mysqlcon.database = mysql_database;
+				mysqlcon.username = 'root';
+				mysqlcon.password = rootpassword;
+				mysqlcon.setTablePrefix(mysql_table_prefix);
+				
+				_params.push(mysqlcon);
+
+				// installation step
+				_params.push(install_step);
+		
+				let result = await didregistriesservice.installMysqlTables_asynchook(_result, _params);
+				jsonresult = Object.assign({status: 1}, result);
+			}
+			else {
+				jsonresult = {status: 0, error: "api call is not authorized"};
+			}
+		}
+		catch(e) {
+			global.log("exception in RegistriesControllers.server_tables_create: " + e);
+			
+			jsonresult = {status: 0, error: "could not create server tables: " + e};
+		}
+
+		if (session_section) session_section.close();
+		res.json(jsonresult);
+	}
+
+	async server_tables_update(req, res) {
+		// POST
+		var global = this.global;
+		var sessionuuid = req.get("sessiontoken");
+		var calltoken = req.get("calltoken");
+		var calltokenjson = this.getCalltokenJson(calltoken);
+		
+		global.log("server_tables_update called for sessiontoken " + sessionuuid);
+
+		var api_secret = req.body.api_secret;
+		var rootpassword = req.body.rootpassword;
+		
+		var install_step = req.body.install_step;
+
+		var commonservice = global.getServiceInstance('common');
+		var Session = commonservice.Session;
+
+		var jsonresult;
+
+		try {
+			var session_section = Session.openSessionSection(global, sessionuuid, 'server_tables_update', calltokenjson);
+			var session = await session_section._safe_sessionAsync();
+
+			let didregistriesservice = global.getServiceInstance('did-registries');
+			let authorizationserver = didregistriesservice.getAuthorizationServerInstance();
+	
+			let isAdminApiCall = await authorizationserver.isSiteAdminApiCall(api_secret);
+			if (isAdminApiCall) {
+				let mysql_database = global.getConfigValue('mysql_database');
+				let mysql_table_prefix = global.getConfigValue('mysql_table_prefix');
+
+				// call 'installMysqlTables_asynchook' just for did-registries service
+				let _result = [];
+		
+				let _params = [];
+				
+				// session
+				_params.push(session);
+				
+				// mysql connection
+				let org_mysqlcon = await global.getMySqlConnectionAsync();
+				let mysqlcon = org_mysqlcon.clone();
+		
+				mysqlcon.database = mysql_database;
+				mysqlcon.username = 'root';
+				mysqlcon.password = rootpassword;
+				mysqlcon.setTablePrefix(mysql_table_prefix);
+				
+				_params.push(mysqlcon);
+
+				// installation step
+				_params.push(install_step);
+		
+				let result = await didregistriesservice.installMysqlTables_asynchook(_result, _params);
+				jsonresult = Object.assign({status: 1}, result);
+			}
+			else {
+				jsonresult = {status: 0, error: "api call is not authorized"};
+			}
+		}
+		catch(e) {
+			global.log("exception in RegistriesControllers.server_tables_update: " + e);
+			
+			jsonresult = {status: 0, error: "could not update server tables: " + e};
+		}
+
+		if (session_section) session_section.close();
+		res.json(jsonresult);
+	}
+
+
+	
+	//
+	// Registries Server API
+	//
 
 	//
 	// configuration endpoints
@@ -122,7 +289,7 @@ class RegistriesControllers {
 			jsonresult = await authorizationserver.openid_configuration(options);
 		}
 		catch(e) {
-			global.log("exception in VerifiableCredentialsControllers.openid_configuration: " + e);
+			global.log("exception in RegistriesControllers.openid_configuration: " + e);
 			
 			jsonresult = {status: 0, error: "could not retrieve information"};
 		}
@@ -151,7 +318,7 @@ class RegistriesControllers {
 			jsonresult = await didregistriesserver.registries_configuration(options);
 		}
 		catch(e) {
-			global.log("exception in VerifiableCredentialsControllers.registries_configuration: " + e);
+			global.log("exception in RegistriesControllers.registries_configuration: " + e);
 			
 			jsonresult = {status: 0, error: "could not retrieve information"};
 		}
@@ -939,6 +1106,8 @@ class RegistriesControllers {
 		var attribute  = req.body.attribute;
 		var attribute_signature  = req.body.attribute_signature;
 		var algorithm_string  = req.body.algorithm;
+
+		var body  = req.body.body; // can be null, holds large texts like jwt credential
 		
 		var jsonresult;
 		
@@ -958,7 +1127,7 @@ class RegistriesControllers {
 			if (auth_token.authenticated) {
 
 				let options = {auth_token};
-				let params = {did, attribute, attribute_signature, algorithm_string};
+				let params = {did, attribute, attribute_signature, algorithm_string, body};
 				let result = await didregistriesserver.did_registry_identifier_attribute_add(session_section, options, params);
 				
 				jsonresult = Object.assign({status: 1}, result);
@@ -978,12 +1147,12 @@ class RegistriesControllers {
 		res.json(jsonresult);
 	}
 
-	async did_registry_identifier_attribute_deactivate(req, res) {
+	async did_registry_identifier_attribute_update(req, res) {
 		// POST
 		var global = this.global;
 		var sessionuuid = req.get("sessiontoken");
 		
-		global.log("did_registry_identifier_attribute_deactivate called for sessiontoken " + sessionuuid);
+		global.log("did_registry_identifier_attribute_update called for sessiontoken " + sessionuuid);
 
 		let access_token = this._parseAccessTokenFromRequests(req);
 		
@@ -998,7 +1167,7 @@ class RegistriesControllers {
 			var commonservice = global.getServiceInstance('common');
 			var Session = commonservice.Session;
 
-			var session_section = Session.openSessionSection(global, sessionuuid, 'did_registry_identifier_attribute_deactivate');
+			var session_section = Session.openSessionSection(global, sessionuuid, 'did_registry_identifier_attribute_update');
 			var session = await session_section.getSessionAsync();
 
 			var didregistriesservice = global.getServiceInstance('did-registries');
@@ -1011,7 +1180,7 @@ class RegistriesControllers {
 
 				let options = {auth_token};
 				let params = {did, attribute_cmd_string, attribute_signature, algorithm_string};
-				let result = await didregistriesserver.did_registry_identifier_attribute_deactivate(session_section, options, params);
+				let result = await didregistriesserver.did_registry_identifier_attribute_update(session_section, options, params);
 				
 				jsonresult = Object.assign({status: 1}, result);
 			}
@@ -1020,7 +1189,7 @@ class RegistriesControllers {
 			}
 		}
 		catch(e) {
-			global.log("exception in did_registry_identifier_attribute_deactivate for sessiontoken " + sessionuuid + ": " + e);
+			global.log("exception in did_registry_identifier_attribute_update for sessiontoken " + sessionuuid + ": " + e);
 			global.log(e.stack);
 
 			jsonresult = {status: 0, error: "exception could not deactivate attribute"};

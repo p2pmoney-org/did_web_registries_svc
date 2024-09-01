@@ -432,13 +432,17 @@ class DidRegistriesServer {
 
 	async _getIdentifierPathList(did_key) {
 
-		let arr = await this.persistor.getIdentifierPathListAsync(did_key);
+		let arr = [];
 
 		// add '/' if this did_key is also the site root key
 		let site_root_did_key = this._getSiteRootDidKey();
 		
 		if (did_key == site_root_did_key) {
-			arr.push('/');
+			let entry = this._getSiteRootDidKeyIdentifier();
+			arr.push(entry);
+		}
+		else {
+			arr = await this.persistor.getIdentifierPathListAsync(did_key);
 		}
 
 		return arr;
@@ -448,7 +452,19 @@ class DidRegistriesServer {
 		let site_root_did_key = this._getSiteRootDidKey();
 		
 		if (did_key == site_root_did_key) {
-			return [];
+			// check it has been inserted in the database
+			let root_identifier_record = await this.persistor.getIdentifierAsync(did_key).catch(err=>{});
+
+			if (!root_identifier_record || !root_identifier_record.did) {
+				let record = {did: did_key};
+
+				let identifieruuid = global.guid();
+
+				// identifier table
+				record.identifier_uuid = identifieruuid;
+
+				await this.persistor.putIdentifierAsync(record);
+			}
 		}
 
 		let arr = await this.persistor.getIdentifierAttributeListAsync(did_key);
@@ -721,6 +737,32 @@ class DidRegistriesServer {
 		json.capabilityInvocation = [kid_web];
 		json.capabilityDelegation = [kid_web];
 
+		// add attributes signed by this did_web
+		let attributes = await this._getIdentifierAttributeListAsync(did_key);
+
+		for (var i = 0; i < (attributes ? attributes.length : 0); i++) {
+			let attribute = attributes[i];
+
+			if ((attribute.attribute_status === 1) && (attribute.reporter_did === did_key)) {
+				try {
+					let attribute_json = JSON.parse(attribute.attribute);
+
+					if (attribute_json && attribute_json.key) {
+						let attribute_name = attribute_json.key;
+						let attribute_value = attribute_json.value;
+
+						if (!json[attribute_name])
+						json[attribute_name] = [];
+
+						if (Array.isArray(json[attribute_name]) && attribute_value)
+						json[attribute_name].push(attribute_value);
+					}
+				}
+				catch(e) {}
+			}
+		}
+
+
 		return json;
 	}
 
@@ -936,7 +978,11 @@ class DidRegistriesServer {
 
 		json.did = did_web;
 
-		json.attributes = await this._getIdentifierAttributeListAsync(identifier_record.did);
+		let attributes = await this._getIdentifierAttributeListAsync(identifier_record.did);
+
+		// return all attributes, even de-activated ones
+
+		json.items = attributes;
 
 		return json;
 	}
@@ -955,6 +1001,8 @@ class DidRegistriesServer {
 
 		let algorithm_string  = params.algorithm_string;
 		let algorithm = JSON.parse(algorithm_string);
+
+		let body  = params.body;
 
 		let sub_did_web  = params.did;
 
@@ -1000,7 +1048,9 @@ class DidRegistriesServer {
 
 
 		let reporter_level = 0;
-		let reporter_signature = algorithm_string + '/' + attribute_signature; // using '/0x' as delimiter
+		let proof = Object.assign(algorithm, {sig: attribute_signature});
+		//let reporter_signature = algorithm_string + '/' + attribute_signature; // using '/0x' as delimiter
+		let reporter_signature = JSON.stringify(proof);
 
 		// define reporter_level
 		if (sub_did_key == reporter_did_key) {
@@ -1044,9 +1094,14 @@ class DidRegistriesServer {
 			}
 		}
 
-		let record = {attribute_uuid, attribute: attribute_string, reporter_did: reporter_did_key, reporter_level, reporter_signature}
+		let record = {attribute_uuid, attribute: attribute_string, reporter_did: reporter_did_key, reporter_level, reporter_signature};
 
 		await this.persistor.addIdentifierAttribute(sub_did_key, record);
+
+		if (body) {
+			// add body for this attribute
+			await this.persistor.addIdentifierAttributeBody(sub_did_key, {attribute_uuid, body});
+		}
 
 		json.did = sub_did_web;
 		json.attribute_uuid = attribute_uuid;
@@ -1054,11 +1109,141 @@ class DidRegistriesServer {
 		return json;
 	}
 
-	async did_registry_identifier_attribute_deactivate(session_section, options, params) {
+	async did_registry_identifier_attribute_update(session_section, options, params) {
+		const CryptoUtils = require('./includes/crypto-block/crypto-utils.js');
+		const JwCryptoKeys = require('./includes/jw/jw-cryptokeys.js');
+
+
 		var json = {};
 
-		json.error = 'not implemented';
-		
+		let auth_token = options.auth_token;
+
+		let attribute_cmd_string  = params.attribute_cmd_string;
+		let attribute_signature  = params.attribute_signature;
+
+		let algorithm_string  = params.algorithm_string;
+		let algorithm = JSON.parse(algorithm_string);
+
+		let sub_did_web  = params.did;
+
+		let sub_identifier_record = await this._getIdentifierFromDidWeb(sub_did_web);
+
+		if (!sub_identifier_record || !sub_identifier_record.did) {
+			json.error = 'did is not registered: ' + sub_did_web;
+
+			return json;
+		}
+
+		let sub_did_key = sub_identifier_record.did;
+
+
+		let attribute_cmd = JSON.parse(attribute_cmd_string);
+
+
+		// check command string
+		let reporter_did_key = auth_token.did;
+
+		let publicKeyJWK = await this._getDidKeyJwk(reporter_did_key);
+
+		if (!publicKeyJWK) {
+			json.error = 'could not find public key of: ' + path;
+			return json;
+		}
+
+		let alg = algorithm.alg;
+		let jwkKeyPair = {alg, publicKey: publicKeyJWK};
+
+		let cryptoKeyPair = await JwCryptoKeys.importCryptoKeyPairFromJwk(jwkKeyPair);
+
+		let keySet = {alg, jwkKeyPair, cryptoKeyPair};
+
+		let verified =  await CryptoUtils.validateStringSignature(attribute_cmd_string, attribute_signature, keySet, algorithm);
+
+		if (!verified) {
+			json.error = 'signature is not valid for: ' + reporter_did_key;
+
+			return json;
+		}
+
+		let reporter_level = 0;
+
+		// compute reporter_level
+		if (sub_did_key == reporter_did_key) {
+			reporter_level = 1; // auto-reporting
+		}
+		else {
+			let sub_path = sub_identifier_record.path;
+			let reporter_path_arr = await this._getIdentifierPathList(reporter_did_key);
+
+			for (var i = 0; i < reporter_path_arr.length; i++) {
+				let _report_path = reporter_path_arr[i].path;
+
+				if (sub_path && _report_path && sub_path.startsWith(_report_path)) {
+					reporter_level = 2; // upper node reporting
+					break;
+				}
+				else if (sub_path && _report_path && _report_path.startsWith(sub_path)) {
+					reporter_level = 3; // lower node reporting
+					break;
+				}
+			}
+
+			if (reporter_level == 0)
+			reporter_level = 4; // "peer reporting"
+		}
+
+		// get attribute from database
+		let attribute_uuid = attribute_cmd.attribute_uuid;
+
+		let saved_attribute = await this.persistor.getIdentifierWithAttributeAsync(sub_did_key, attribute_uuid);
+
+		if (!saved_attribute) {
+			json.error = 'attribute not found: ' + attribute_uuid;
+
+			return json;
+		}
+
+		switch(reporter_level) {
+			case 1: {
+				// auto-reporting
+
+				// can modify only auto-reporting attributes
+				if (saved_attribute.reporter_level !== 1) {
+					json.error = 'can not modify attributes reported by others: ' + attribute_uuid;
+
+					return json;
+				}
+			}
+			break;
+
+			case 2: {
+				// upper node
+			}
+			break;
+
+			case 3:
+			case 4: {
+				// lower node reporting or "peer reporting"
+
+				// check this is the same reporter
+				if (reporter_did_key !== saved_attribute.reporter_did_key) {
+					json.error = 'not original reporter of this attribute: ' + attribute_uuid;
+
+					return json;
+				}
+			}
+			break;
+		}
+
+		let record = {attribute_status: attribute_cmd.attribute_status};
+
+		// update attribute status in database
+		await this.persistor.updateIdentifierAttribute(sub_did_key, attribute_uuid, record)
+
+
+		json.success = true;
+		json.attribute_uuid = attribute_uuid;
+
 		return json;
 	}
 
@@ -1177,36 +1362,62 @@ class DidRegistriesServer {
 			let sub_rights = sub_identifier.rights;
 
 			if (sub_rights & 0b00000100) {
-				let attribute = {};
+				let attribute = {uuid: sub_identifier.identifier_uuid + '_ti_right'};
 	
 				attribute.issuerType = 'TI';
 				attribute.tao = await this._getTaoFromDidWeb(did_web);
 				attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
 	
-				attributes. push(attribute);
+				attributes.push(attribute);
 			}
 	
 			if (sub_rights & 0b00001000) {
-				let attribute = {};
+				let attribute = {uuid: sub_identifier.identifier_uuid + '_tao_right'};
 	
 				attribute.issuerType = 'TAO';
 				attribute.tao = await this._getTaoFromDidWeb(did_web);
 				attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
 	
-				attributes. push(attribute);
+				attributes.push(attribute);
 			}
 				
 			if (sub_rights & 0b00010000) {
-				let attribute = {};
+				let attribute = {uuid: sub_identifier.identifier_uuid + '_roottao_right'};
 	
 				attribute.issuerType = 'RootTAO';
 				attribute.tao = await this._getTaoFromDidWeb(did_web);
 				attribute.rootTao = this._getSiteRootDidWeb(did_web_domain);
 	
-				attributes. push(attribute);
+				attributes.push(attribute);
 			}
 		}
 		
+		// add attributes signed by this upper nodes
+		let did_key = sub_identifier.did;
+		let arr = await this._getIdentifierAttributeListAsync(did_key);
+
+		for (var i = 0; i < (arr ? arr.length : 0); i++) {
+			let attr = arr[i];
+
+			if ((attr.attribute_status === 1) && (attr.reporter_level === 2)) {
+				try {
+					let attribute_json = JSON.parse(attr.attribute);
+
+					if (attribute_json && attribute_json.key) {
+						let attribute_name = attribute_json.key;
+						let attribute_value = attribute_json.value;
+
+						let attribute = {uuid: attr.attribute_uuid};
+
+						attribute[attribute_name] = attribute_value;
+						attribute.body = attr.body;
+
+						attributes.push(attribute);
+					}
+				}
+				catch(e) {}
+			}
+		}
 
 
 		json.attributes = attributes;
