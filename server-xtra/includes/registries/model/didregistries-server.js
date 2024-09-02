@@ -449,6 +449,7 @@ class DidRegistriesServer {
 	}
 
 	async _getIdentifierAttributeListAsync(did_key) {
+		var global = this.global;
 		let site_root_did_key = this._getSiteRootDidKey();
 		
 		if (did_key == site_root_did_key) {
